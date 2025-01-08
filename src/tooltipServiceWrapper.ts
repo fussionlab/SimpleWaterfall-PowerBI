@@ -1,5 +1,3 @@
-
-//module powerbi.extensibility.visual {
 import powerbi from "powerbi-visuals-api";
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import ITooltipService = powerbi.extensibility.ITooltipService;
@@ -19,23 +17,28 @@ export interface ITooltipServiceWrapper {
         selection: d3.Selection<any, any, any, any>,
         getTooltipInfoDelegate: (args: TooltipEventArgs<T>) => VisualTooltipDataItem[],
         getDataPointIdentity: (args: TooltipEventArgs<T>) => ISelectionId,
-        reloadTooltipDataOnMouseMove?: boolean): void;
+        reloadTooltipDataOnMouseMove?: boolean
+    ): void;
     hide(): void;
 }
 
 const DefaultHandleTouchDelay = 1000;
 
-export function createTooltipServiceWrapper(tooltipService: ITooltipService, rootElement: any, handleTouchDelay: number = DefaultHandleTouchDelay): ITooltipServiceWrapper {
+export function createTooltipServiceWrapper(
+    tooltipService: ITooltipService,
+    rootElement: HTMLElement,
+    handleTouchDelay: number = DefaultHandleTouchDelay
+): ITooltipServiceWrapper {
     return new TooltipServiceWrapper(tooltipService, rootElement, handleTouchDelay);
 }
 
 class TooltipServiceWrapper implements ITooltipServiceWrapper {
-    private handleTouchTimeoutId: number;
+    private handleTouchTimeoutId: number | undefined;
     private visualHostTooltipService: ITooltipService;
-    private rootElement: any;
+    private rootElement: HTMLElement;
     private handleTouchDelay: number;
 
-    constructor(tooltipService: ITooltipService, rootElement: any, handleTouchDelay: number) {
+    constructor(tooltipService: ITooltipService, rootElement: HTMLElement, handleTouchDelay: number) {
         this.visualHostTooltipService = tooltipService;
         this.handleTouchDelay = handleTouchDelay;
         this.rootElement = rootElement;
@@ -45,42 +48,56 @@ class TooltipServiceWrapper implements ITooltipServiceWrapper {
         selection: d3.Selection<any, any, any, any>,
         getTooltipInfoDelegate: (args: TooltipEventArgs<T>) => VisualTooltipDataItem[],
         getDataPointIdentity: (args: TooltipEventArgs<T>) => ISelectionId,
-        reloadTooltipDataOnMouseMove?: boolean): void {
-
+        reloadTooltipDataOnMouseMove?: boolean
+    ): void {
         if (!selection || !this.visualHostTooltipService.enabled()) {
             return;
         }
-        //mouse event
-        this.mouseEvent(selection,getTooltipInfoDelegate, getDataPointIdentity, reloadTooltipDataOnMouseMove);
-        //touch event
-        this.touchEvent(selection,getTooltipInfoDelegate, getDataPointIdentity, reloadTooltipDataOnMouseMove);
-
-
+        this.addMouseEvents(selection, getTooltipInfoDelegate, getDataPointIdentity, reloadTooltipDataOnMouseMove);
+        this.addTouchEvents(selection, getTooltipInfoDelegate, getDataPointIdentity);
     }
-    private mouseEvent<T>(selection: d3.Selection<any, any, any, any>,
+
+    private addMouseEvents<T>(
+        selection: d3.Selection<any, any, any, any>,
         getTooltipInfoDelegate: (args: TooltipEventArgs<T>) => VisualTooltipDataItem[],
         getDataPointIdentity: (args: TooltipEventArgs<T>) => ISelectionId,
-        reloadTooltipDataOnMouseMove?: boolean) {
-        let rootNode = this.rootElement;
+        reloadTooltipDataOnMouseMove?: boolean
+    ): void {
+        const rootNode = this.rootElement;
 
-        // Mouse events
-        selection.on("mouseover.tooltip", () => {
-            // Ignore mouseover while handling touch events
-            if (!this.canDisplayTooltip(d3.event))
-                return;
+        selection.on("mouseover.tooltip", (event: MouseEvent) => {
+            if (!this.canDisplayTooltip(event)) return;
 
-            let tooltipEventArgs = this.makeTooltipEventArgs<T>(rootNode, true, false);
-            if (!tooltipEventArgs)
-                return;
+            const tooltipEventArgs = this.makeTooltipEventArgs<T>(event, rootNode, false, false);
+            if (!tooltipEventArgs) return;
 
-            let tooltipInfo = getTooltipInfoDelegate(tooltipEventArgs);
-            if (tooltipInfo == null)
-                return;
+            const tooltipInfo = getTooltipInfoDelegate(tooltipEventArgs);
+            if (!tooltipInfo) return;
 
-            let selectionId = getDataPointIdentity(tooltipEventArgs);
+            const selectionId = getDataPointIdentity(tooltipEventArgs);
 
             this.visualHostTooltipService.show({
-                coordinates: tooltipEventArgs.coordinates,
+                coordinates: [event.clientX, event.clientY],
+                isTouchEvent: false,
+                dataItems: tooltipInfo,
+                identities: selectionId ? [selectionId] : [],
+            });
+        });
+
+        selection.on("mousemove.tooltip", (event: MouseEvent) => {
+            if (!this.canDisplayTooltip(event)) return;
+
+            const tooltipEventArgs = this.makeTooltipEventArgs<T>(event, rootNode, false, false);
+            if (!tooltipEventArgs) return;
+
+            const tooltipInfo = reloadTooltipDataOnMouseMove
+                ? getTooltipInfoDelegate(tooltipEventArgs)
+                : undefined;
+
+            const selectionId = getDataPointIdentity(tooltipEventArgs);
+
+            this.visualHostTooltipService.move({
+                coordinates: [event.clientX, event.clientY],
                 isTouchEvent: false,
                 dataItems: tooltipInfo,
                 identities: selectionId ? [selectionId] : [],
@@ -88,185 +105,81 @@ class TooltipServiceWrapper implements ITooltipServiceWrapper {
         });
 
         selection.on("mouseout.tooltip", () => {
-            this.visualHostTooltipService.hide({
+            return this.visualHostTooltipService.hide({
                 isTouchEvent: false,
-                immediately: false,
-            });
-        });
-
-        selection.on("mousemove.tooltip", () => {
-            // Ignore mousemove while handling touch events
-            if (!this.canDisplayTooltip(d3.event))
-                return;
-
-            let tooltipEventArgs = this.makeTooltipEventArgs<T>(rootNode, true, false);
-            if (!tooltipEventArgs)
-                return;
-
-            let tooltipInfo: VisualTooltipDataItem[];
-            if (reloadTooltipDataOnMouseMove) {
-                tooltipInfo = getTooltipInfoDelegate(tooltipEventArgs);
-                if (tooltipInfo == null)
-                    return;
-            }
-
-            let selectionId = getDataPointIdentity(tooltipEventArgs);
-
-            this.visualHostTooltipService.move({
-                coordinates: tooltipEventArgs.coordinates,
-                isTouchEvent: false,
-                dataItems: tooltipInfo,
-                identities: selectionId ? [selectionId] : [],
+                immediately: false
             });
         });
     }
-    private touchEvent<T>(selection: d3.Selection<any, any, any, any>,
+
+    private addTouchEvents<T>(
+        selection: d3.Selection<any, any, any, any>,
         getTooltipInfoDelegate: (args: TooltipEventArgs<T>) => VisualTooltipDataItem[],
-        getDataPointIdentity: (args: TooltipEventArgs<T>) => ISelectionId,
-        reloadTooltipDataOnMouseMove?: boolean) {
-        let rootNode = this.rootElement;
-        // --- Touch events ---
+        getDataPointIdentity: (args: TooltipEventArgs<T>) => ISelectionId
+    ): void {
+        const rootNode = this.rootElement;
 
-        let touchStartEventName: string = TooltipServiceWrapper.touchStartEventName();
-        let touchEndEventName: string = TooltipServiceWrapper.touchEndEventName();
-        let isPointerEvent: boolean = TooltipServiceWrapper.usePointerEvents();
+        selection.on("pointerdown.tooltip", (event: PointerEvent) => {
+            const tooltipEventArgs = this.makeTooltipEventArgs<T>(event, rootNode, true, true);
+            if (!tooltipEventArgs) return;
 
-        selection.on(touchStartEventName + '.tooltip', () => {
-            this.visualHostTooltipService.hide({
-                isTouchEvent: true,
-                immediately: true,
-            });
-
-            let tooltipEventArgs = this.makeTooltipEventArgs<T>(rootNode, isPointerEvent, true);
-            if (!tooltipEventArgs)
-                return;
-
-            let tooltipInfo = getTooltipInfoDelegate(tooltipEventArgs);
-            let selectionId = getDataPointIdentity(tooltipEventArgs);
+            const tooltipInfo = getTooltipInfoDelegate(tooltipEventArgs);
+            const selectionId = getDataPointIdentity(tooltipEventArgs);
 
             this.visualHostTooltipService.show({
-                coordinates: tooltipEventArgs.coordinates,
+                coordinates: d3.pointer(event, rootNode),
                 isTouchEvent: true,
                 dataItems: tooltipInfo,
                 identities: selectionId ? [selectionId] : [],
             });
         });
 
-        selection.on(touchEndEventName + '.tooltip', () => {
+        selection.on("pointerup.tooltip", () => {
             this.visualHostTooltipService.hide({
                 isTouchEvent: true,
-                immediately: false,
+                immediately: false
             });
 
-            if (this.handleTouchTimeoutId)
-                clearTimeout(this.handleTouchTimeoutId);
+            if (this.handleTouchTimeoutId) clearTimeout(this.handleTouchTimeoutId);
 
-            // At the end of touch action, set a timeout that will let us ignore the incoming mouse events for a small amount of time            
             this.handleTouchTimeoutId = window.setTimeout(() => {
                 this.handleTouchTimeoutId = undefined;
-            }, this.handleTouchDelay);            
+            }, this.handleTouchDelay);
         });
-
     }
+
     public hide(): void {
         this.visualHostTooltipService.hide({ immediately: true, isTouchEvent: false });
     }
 
-    private makeTooltipEventArgs<T>(rootNode: any, isPointerEvent: boolean, isTouchEvent: boolean): TooltipEventArgs<T> {
-        let target = <HTMLElement>(<Event>d3.event).target;
-        let data: any = d3.select(target).datum();
-
-        let mouseCoordinates = this.getCoordinates(rootNode, isPointerEvent);
-        let elementCoordinates: number[] = this.getCoordinates(target, isPointerEvent);
+    private makeTooltipEventArgs<T>(
+        event: Event,
+        rootNode: HTMLElement,
+        isPointerEvent: boolean,
+        isTouchEvent: boolean
+    ): TooltipEventArgs<T> | null {
+        const target = event.target as HTMLElement;
+    
+        // Retrieve the data bound to the element; handle undefined gracefully
+        const boundData = d3.select(target).datum() as T | undefined;
+        if (!boundData) {
+            return null; // If no data is bound, return null
+        }
+    
+        const coordinates = d3.pointer(event, rootNode);
+        const elementCoordinates = d3.pointer(event, target);
+    
         return {
-            data: data,
-            coordinates: mouseCoordinates,
-            elementCoordinates: elementCoordinates,
+            data: boundData, // Use the retrieved data
+            coordinates,
+            elementCoordinates,
             context: target,
-            isTouchEvent: isTouchEvent
+            isTouchEvent,
         };
-        /*let tooltipEventArgs: TooltipEventArgs<T> = {
-            data: data,
-            coordinates: mouseCoordinates,
-            elementCoordinates: elementCoordinates,
-            context: target,
-            isTouchEvent: isTouchEvent
-        };*/
-
-        //return tooltipEventArgs;
     }
+    
 
-    private canDisplayTooltip(d3Event: any): boolean {
-        let canDisplay: boolean = true;
-        let mouseEvent: MouseEvent = <MouseEvent>d3Event;
-        if (mouseEvent.buttons !== undefined) {
-            // Check mouse buttons state
-            let hasMouseButtonPressed = mouseEvent.buttons !== 0;
-            canDisplay = !hasMouseButtonPressed;
-        }
-
-        // Make sure we are not ignoring mouse events immediately after touch end.
-        canDisplay = canDisplay && (this.handleTouchTimeoutId == null);
-
-        return canDisplay;
-    }
-
-    private getCoordinates(rootNode: any, isPointerEvent: boolean): number[] {
-        let coordinates: number[];
-
-        if (isPointerEvent) {
-            // copied from d3_eventSource (which is not exposed)
-            let e = <any>d3.event, s;
-            while (s = e.sourceEvent) e = s;
-            let rect = rootNode.getBoundingClientRect();
-            coordinates = [e.clientX - rect.left - rootNode.clientLeft, e.clientY - rect.top - rootNode.clientTop];
-        }
-        else {
-            let touchCoordinates = d3.touches(rootNode);
-            if (touchCoordinates && touchCoordinates.length > 0) {
-                coordinates = touchCoordinates[0];
-            }
-        }
-
-        return coordinates;
-    }
-
-    private static touchStartEventName(): string {
-        let eventName: string = "touchstart";
-
-        if (window["PointerEvent"]) {
-            // IE11
-            eventName = "pointerdown";
-        }
-
-        return eventName;
-    }
-
-    private static touchMoveEventName(): string {
-        let eventName: string = "touchmove";
-
-        if (window["PointerEvent"]) {
-            // IE11
-            eventName = "pointermove";
-        }
-
-        return eventName;
-    }
-
-    private static touchEndEventName(): string {
-        let eventName: string = "touchend";
-
-        if (window["PointerEvent"]) {
-            // IE11
-            eventName = "pointerup";
-        }
-
-        return eventName;
-    }
-
-    private static usePointerEvents(): boolean {
-        let eventName = TooltipServiceWrapper.touchStartEventName();
-        return eventName === "pointerdown" || eventName === "MSPointerDown";
+    private canDisplayTooltip(event: MouseEvent): boolean {
+        return event.buttons === undefined || event.buttons === 0;
     }
 }
-//}

@@ -3,12 +3,14 @@ import powerbi from "powerbi-visuals-api";
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import PrimitiveValue = powerbi.PrimitiveValue;
 import ISelectionId = powerbi.visuals.ISelectionId;
-import { VisualSettings, yAxisFormatting, chartOrientation } from "./settings";
+import { VisualSettings} from "./settings";
 import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import DataView = powerbi.DataView;
 import VisualEnumerationInstanceKinds = powerbi.VisualEnumerationInstanceKinds;
 import { dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
+
+
 interface barChartDataPoint {
     value: PrimitiveValue;
     numberFormat: string;
@@ -50,21 +52,18 @@ export function createenumerateObjects(
 class enumerateObjects implements IEnumerateObjects {
     private visualType: String;
     private barChartData: barChartDataPoint[];
-    private barChartDataAll;
     private visualSettings: VisualSettings;
     private defaultXAxisGridlineStrokeWidth: PrimitiveValue;
     private defaultYAxisGridlineStrokeWidth: PrimitiveValue;
     private dataView: DataView;
-
     constructor(visualType: String, barchartData: barChartDataPoint[], barchartDataAll, visualSettings: VisualSettings, defaultXAxisGridlineStrokeWidth: PrimitiveValue, defaultYAxisGridlineStrokeWidth: PrimitiveValue, dataView: DataView) {
         this.visualType = visualType;
         this.barChartData = barchartData;
-        this.barChartDataAll = barchartDataAll;
         this.visualSettings = visualSettings;
         this.defaultXAxisGridlineStrokeWidth = defaultXAxisGridlineStrokeWidth;
         this.defaultYAxisGridlineStrokeWidth = defaultYAxisGridlineStrokeWidth;
         this.dataView = dataView;
-
+       
     }
     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject {
         let objectName: string = options.objectName;
@@ -86,6 +85,7 @@ class enumerateObjects implements IEnumerateObjects {
             case 'xAxisFormatting':
                 this.propertiesXaxis(objectName, objectEnumeration);
                 break;
+            
             case 'yAxisFormatting':
                 this.propertiesYaxis(objectName, objectEnumeration);
                 break;
@@ -332,18 +332,36 @@ class enumerateObjects implements IEnumerateObjects {
 
 
     }
-    private propertiesXaxis(objectName: string, objectEnumeration: VisualObjectInstance[]) {
+    private propertiesXaxis(objectName: string, objectEnumeration) { 
         objectEnumeration.push({
             objectName: "objectName",
-            properties: {
-                fontSize: this.visualSettings.xAxisFormatting.fontSize,
-                fontColor: this.visualSettings.xAxisFormatting.fontColor,
+            properties: { 
                 fontFamily: this.visualSettings.xAxisFormatting.fontFamily,
+                fontSize: this.visualSettings.xAxisFormatting.fontSize,
+                bold: this.visualSettings.xAxisFormatting.bold,
+                italic: this.visualSettings.xAxisFormatting.italic,
+                underline: this.visualSettings.xAxisFormatting.underline,
+                fontColor: this.visualSettings.xAxisFormatting.fontColor,
                 fitToWidth: this.visualSettings.xAxisFormatting.fitToWidth,
-                labelWrapText: this.visualSettings.xAxisFormatting.labelWrapText
+                labelWrapText: this.visualSettings.xAxisFormatting.labelWrapText,
+                showAngle: this.visualSettings.xAxisFormatting.showAngle
             },
             selector: null
         });
+    
+        if (!this.visualSettings.xAxisFormatting.showAngle) {
+            objectEnumeration.push({
+                objectName: "objectName",
+                properties: {
+                    xLabelAngle: this.visualSettings.xAxisFormatting.xLabelAngle
+                },
+                selector: null
+            });
+            objectEnumeration[objectEnumeration.length - 1].validValues = {
+                xLabelAngle: { numberRange: { min: -90, max: 90 } }
+            };
+        }
+      
         if (!this.visualSettings.xAxisFormatting.fitToWidth) {
             objectEnumeration.push({
                 objectName: "objectName",
@@ -352,14 +370,12 @@ class enumerateObjects implements IEnumerateObjects {
                 },
                 selector: null
             });
-
+    
             objectEnumeration[1].validValues = {
                 barWidth: { numberRange: { min: 10, max: 100 } }
-
             };
         }
-
-
+    
         objectEnumeration.push({
             objectName: "objectName",
             properties: {
@@ -370,9 +386,8 @@ class enumerateObjects implements IEnumerateObjects {
         });
         objectEnumeration[objectEnumeration.length - 1].validValues = {
             padding: { numberRange: { min: 0, max: 20 } }
-
         };
-
+    
         if (this.visualSettings.xAxisFormatting.showGridLine) {
             objectEnumeration.push({
                 objectName: "objectName",

@@ -56,9 +56,10 @@ export class Legend {
   public show: boolean = false;
   public fontSize: number = 9;
   public fontColor: string = "#777777";
-  public fontFamily: string = "\"Segoe UI\", wf_segoe-ui_normal, helvetica, arial, sans-serif";
+  public fontFamily: string = "\"Segoe UI\", Calibri, Century Gothic, Helvetica, Arial, Sans-serif";
   public textFavourable: string = "Favourable";
   public textAdverse: string = "Adverse";
+  public textTotal: string = "Total";
 }
 export class sentimentColor {
   public sentimentColorTotal: string = "#0000ff";
@@ -75,16 +76,23 @@ export class margins {
 }
 
 export class xAxisFormatting {
+  public show: boolean = true; 
   public fontSize: number = 9;
   public fontColor: string = "#777777";
-  public fontFamily: string = "\"Segoe UI\", wf_segoe-ui_normal, helvetica, arial, sans-serif";
+  public fontFamily: string = "\"Segoe UI\", Calibri, Century Gothic, Helvetica, Arial, Sans-serif";
+  public bold:boolean = false;
+  public italic: boolean = false;
+  public underline: boolean = false;
   public labelWrapText: boolean = true;
+  public showAngle:boolean = true;
+  public xLabelAngle:number = -90;
   public fitToWidth: boolean = true;
   public barWidth: number = 50;
   public padding: number = 5;  
   public showGridLine: boolean = true;
   public gridLineStrokeWidth: number = 5;
   public gridLineColor: string = "#777777";  
+  public maxLabelLength: number = 15; 
 }
 export class yAxisFormatting {
   public show: boolean = true;
@@ -94,7 +102,7 @@ export class yAxisFormatting {
   public showYAxisValues: boolean = true;  
   public fontSize: number = 9;
   public fontColor: string = "#777777";
-  public fontFamily: string = "\"Segoe UI\", wf_segoe-ui_normal, helvetica, arial, sans-serif";
+  public fontFamily: string = "\"Segoe UI\", Calibri, Century Gothic, Helvetica, Arial, Sans-serif";
   public YAxisValueFormatOption: string = "Auto";
   public showGridLine: boolean = true;
   
@@ -118,7 +126,7 @@ export class LabelsFormatting {
   public sentimentFontColorFavourable: string = "#777777";
   public sentimentFontColorAdverse: string = "#777777";
   public sentimentFontColorOther: string = "#777777";
-  public fontFamily: string = "\"Segoe UI\", wf_segoe-ui_normal, helvetica, arial, sans-serif";
+  public fontFamily: string = "\"Segoe UI\", Calibri, Century Gothic, Helvetica, Arial, Sans-serif";
   public valueFormat: string = "Auto";
   public useDefaultLabelPositioning: boolean = true;
   public labelPosition: string = "Outside end";
